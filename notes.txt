@@ -1,0 +1,16 @@
+Types:
+
+- bfloat16
+- bfloat162
+
+Conversions:
+
+- To / from float, int (rd / rn / ru / rz), long long (rd / rn / ru / rz), short (R), unsigned versions
+
+- From double
+- From float (+ rounding modes)
+- from float to bf162 (+ rounding modes), float2 to bfloat162 with RN only, two floats to bf162 with RN only
+
+- Reinterpret as short / ushort, reinterpet short / ushort as bf16
+
+
