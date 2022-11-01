@@ -95,10 +95,15 @@ def f(x):
     x[()] = types.float32(r)
 
 
+@cuda.jit
+def f_bf16_array(x):
+    x[()] = bfloat16(types.float32(1.0)) + bfloat16(types.float32(2.0))
+
+
 if __name__ == '__main__':
     x = np.array(1, dtype=np.float32)
-    #d_x = cuda.device_array(1, dtype=bfloat16)
+    d_x = cuda.device_array(1, dtype=bfloat16)
     f[1, 1](x)
-    #f[1, 1](d_x)
+    f_bf16_array[1, 1](d_x)
     print(x[()])
-    #print(d_x[()])
+    #print(d_x[0])
