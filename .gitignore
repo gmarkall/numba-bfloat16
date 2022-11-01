@@ -1,2 +1,3 @@
 *.ptx
 .*.swp
+__pycache__

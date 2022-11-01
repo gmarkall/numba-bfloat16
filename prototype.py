@@ -1,6 +1,7 @@
 import numpy as np
 import operator
 
+from bfloat16 import bfloat16
 from llvmlite import ir
 
 from numba import cuda, types
@@ -8,7 +9,8 @@ from numba.core.types.scalars import Number
 from numba.cuda.cudaimpl import registry
 from numba.cuda.models import models, register_model
 from numba.cuda.extending import intrinsic
-from numba.core.extending import overload
+from numba.core.extending import overload, typeof_impl
+from numba.np import numpy_support
 
 lower_cast = registry.lower_cast
 
@@ -18,7 +20,15 @@ class BFloat16(Number):
         super().__init__(name='bfloat16')
 
 
-bfloat16 = BFloat16()
+bfloat16_type = BFloat16()
+
+
+@typeof_impl.register(bfloat16)
+def typeof_bfloat16(val, c):
+    return bfloat16_type
+
+
+numpy_support.FROM_DTYPE[np.dtype(bfloat16)] = bfloat16_type
 
 
 @register_model(BFloat16)
@@ -27,7 +37,7 @@ class BFloat16Model(models.PrimitiveModel):
         super().__init__(dmm, fe_type, ir.IntType(16))
 
 
-@lower_cast(types.float32, bfloat16)
+@lower_cast(types.float32, bfloat16_type)
 def float32_to_bfloat16(context, builder, fromty, toty, val):
     function_type = ir.FunctionType(ir.IntType(16), [ir.FloatType()])
     instruction = "cvt.rn.bf16.f32 $0, $1;"
@@ -35,7 +45,7 @@ def float32_to_bfloat16(context, builder, fromty, toty, val):
     return builder.call(asm, [val])
 
 
-@lower_cast(bfloat16, types.float32)
+@lower_cast(bfloat16_type, types.float32)
 def bfloat16_to_float32(context, builder, fromty, toty, val):
     function_type = ir.FunctionType(ir.FloatType(), [ir.IntType(16)])
     instruction = "mov.b32 $0, {0, $1};"
@@ -45,7 +55,7 @@ def bfloat16_to_float32(context, builder, fromty, toty, val):
 
 @intrinsic
 def bfloat16_add(typingctx, a, b):
-    sig = bfloat16(bfloat16, bfloat16, bfloat16)
+    sig = bfloat16_type(bfloat16_type, bfloat16_type)
 
     def codegen(context, builder, sig, args):
         i16 = ir.IntType(16)
@@ -57,6 +67,15 @@ def bfloat16_add(typingctx, a, b):
         return builder.call(asm, args)
 
     return sig, codegen
+
+
+@overload(bfloat16, target='cuda')
+def ol_bfloat16(x):
+    if not isinstance(x, types.float32):
+        return None
+
+    # I think this is not needed.
+    breakpoint()
 
 
 @overload(operator.add, target='cuda')
@@ -75,6 +94,10 @@ def f(x):
     x[()] = types.float32(r)
 
 
-x = np.array(1, dtype=np.float32)
-f[1, 1](x)
-print(x[()])
+if __name__ == '__main__':
+    x = np.array(1, dtype=np.float32)
+    d_x = cuda.device_array(1, dtype=bfloat16)
+    f[1, 1](x)
+    f[1, 1](d_x)
+    print(x[()])
+    print(d_x[()])
