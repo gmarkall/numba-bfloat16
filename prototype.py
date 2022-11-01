@@ -41,7 +41,7 @@ class BFloat16Model(models.PrimitiveModel):
 def float32_to_bfloat16(context, builder, fromty, toty, val):
     function_type = ir.FunctionType(ir.IntType(16), [ir.FloatType()])
     instruction = "cvt.rn.bf16.f32 $0, $1;"
-    asm = ir.InlineAsm(function_type, instruction, "=h,h")
+    asm = ir.InlineAsm(function_type, instruction, "=h,f")
     return builder.call(asm, [val])
 
 
@@ -62,7 +62,7 @@ def bfloat16_add(typingctx, a, b):
         function_type = ir.FunctionType(i16, [i16, i16])
         instruction = ("{.reg.b16 one; "
                        "mov.b16 one, 0x3f80U; "
-                       "cvt.rn.bf16.f32 $0, $1;}")
+                       "fma.rn.bf16 $0, $1, one, $2;}")
         asm = ir.InlineAsm(function_type, instruction, "=h,h,h")
         return builder.call(asm, args)
 
@@ -91,13 +91,14 @@ def ol_bf16_add(a, b):
 @cuda.jit
 def f(x):
     r = bfloat16(types.float32(1.0)) + bfloat16(types.float32(2.0))
+
     x[()] = types.float32(r)
 
 
 if __name__ == '__main__':
     x = np.array(1, dtype=np.float32)
-    d_x = cuda.device_array(1, dtype=bfloat16)
+    #d_x = cuda.device_array(1, dtype=bfloat16)
     f[1, 1](x)
-    f[1, 1](d_x)
+    #f[1, 1](d_x)
     print(x[()])
-    print(d_x[()])
+    #print(d_x[()])
